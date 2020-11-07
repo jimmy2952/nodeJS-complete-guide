@@ -2,38 +2,42 @@ const path = require("path");
 
 const express = require("express");
 const bodyParser = require("body-parser");
+const mongoose = require("mongoose");
+const session = require("express-session");
+const MongoDBStore = require("connect-mongodb-session")(session);
 
 const errorController = require("./controllers/error");
-const sequelize = require("./util/database");
-const Product = require("./models/product");
 const User = require("./models/user");
-const Cart = require("./models/cart");
-const CartItem = require("./models/cart-item");
-const Order = require("./models/order")
-const OrderItem = require("./models/order-item")
+require('dotenv').config()
 
 const app = express();
+const store = new MongoDBStore({
+  uri: process.env.MONGODB_URI,
+  collections: "sessions",
+});
 
 app.set("view engine", "ejs");
 app.set("views", "views");
 
 const adminRoutes = require("./routes/admin");
 const shopRoutes = require("./routes/shop");
-const { userInfo } = require("os");
-
-// db.execute("SELECT * FROM PRODUCTS")
-//   .then((result) => {
-//     console.log(result[0], result[1]);
-//   })
-//   .catch((err) => {
-//     console.log(err)
-//   });
+const authRoutes = require("./routes/auth");
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public")));
-
+app.use(
+  session({
+    secret: "my secret",
+    resave: false,
+    saveUninitialized: false,
+    store: store,
+  })
+);
 app.use((req, res, next) => {
-  User.findByPk(1)
+  if (!req.session.user) {
+    return next();
+  }
+  User.findById(req.session.user._id)
     .then((user) => {
       req.user = user;
       next();
@@ -43,36 +47,25 @@ app.use((req, res, next) => {
 
 app.use("/admin", adminRoutes);
 app.use(shopRoutes);
+app.use(authRoutes);
 
 app.use(errorController.get404Page);
 
-Product.belongsTo(User, { constraints: true, onDelete: "CASCADE" });
-User.hasMany(Product);
-User.hasOne(Cart);
-Cart.belongsTo(User);
-Cart.belongsToMany(Product, { through: CartItem });
-Product.belongsToMany(Cart, { through: CartItem });
-Order.belongsTo(User)
-User.hasMany(Order)
-Order.belongsToMany(Product, { through: OrderItem })
-
-sequelize
-  // .sync({ force: true })
-  .sync()
+mongoose
+  .connect(process.env.MONGODB_URI, { useUnifiedTopology: true, useNewUrlParser: true })
   .then((result) => {
-    return User.findByPk(1);
-    // console.log(result)
-  })
-  .then((user) => {
-    if (!user) {
-      return User.create({ name: "Jimmy", email: "jimmy2952@gmail.com" });
-    }
-    return user;
-  })
-  .then((user) => {
-    return user.createCart()
-  })
-  .then((cart) => {
+    User.findOne().then((user) => {
+      if (!user) {
+        const user = new User({
+          name: "Jimmy",
+          email: "jimmy@test.com",
+          cart: {
+            items: [],
+          },
+        });
+        user.save();
+      }
+    });
     app.listen(3000);
   })
   .catch((err) => {
