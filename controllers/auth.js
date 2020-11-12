@@ -28,7 +28,7 @@ exports.getSignup = (req, res, next) => {
     pageTitle: "Signup",
     errorMessage: message,
     oldInput: { email: "", password: "", confirmPassword: "" },
-    validationErrors: []
+    validationErrors: [],
   });
 };
 
@@ -43,8 +43,8 @@ exports.getLogin = (req, res, next) => {
     path: "/login",
     pageTitle: "Login",
     errorMessage: message,
-    oldInput: { email: "", password: ""},
-    validationErrors: []
+    oldInput: { email: "", password: "" },
+    validationErrors: [],
   });
 };
 
@@ -63,7 +63,7 @@ exports.postSignup = (req, res, next) => {
         password: password,
         confirmPassword: req.body.confirmPassword,
       },
-      validationErrors: errors.array()
+      validationErrors: errors.array(),
     });
   }
 
@@ -87,7 +87,9 @@ exports.postSignup = (req, res, next) => {
       });
     })
     .catch((err) => {
-      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
     });
 };
 
@@ -100,8 +102,8 @@ exports.postLogin = (req, res, next) => {
       path: "/login",
       pageTitle: "Login",
       errorMessage: errors.array()[0].msg,
-      oldInput: { email: email, password: password},
-      validationErrors: errors.array()
+      oldInput: { email: email, password: password },
+      validationErrors: errors.array(),
     });
   }
   User.findOne({ email: email })
@@ -111,8 +113,8 @@ exports.postLogin = (req, res, next) => {
           path: "/login",
           pageTitle: "Login",
           errorMessage: "Invalid email or password.",
-          oldInput: { email: email, password: password},
-          validationErrors: []
+          oldInput: { email: email, password: password },
+          validationErrors: [],
         });
       }
       bcrypt.compare(password, user.password).then((doMatch) => {
@@ -128,12 +130,16 @@ exports.postLogin = (req, res, next) => {
           path: "/login",
           pageTitle: "Login",
           errorMessage: "Invalid email or password.",
-          oldInput: { email: email, password: password},
-          validationErrors: []
+          oldInput: { email: email, password: password },
+          validationErrors: [],
         });
       });
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
 
 exports.postLogout = (req, res, next) => {
@@ -187,7 +193,9 @@ exports.postReset = (req, res, next) => {
         });
       })
       .catch((err) => {
-        console.log(err);
+        const error = new Error(err);
+        error.httpStatusCode = 500;
+        return next(error);
       });
   });
 };
@@ -197,21 +205,27 @@ exports.getNewPassword = (req, res, next) => {
   User.findOne({
     resetToken: token,
     resetTokenExpiration: { $gt: Date.now() },
-  }).then((user) => {
-    let message = req.flash("error");
-    if (message.length > 0) {
-      message = message[0];
-    } else {
-      message = null;
-    }
-    res.render("auth/new-password", {
-      path: "/new-password",
-      pageTitle: "New Password",
-      errorMessage: message,
-      userId: user._id.toString(),
-      passwordToken: token,
+  })
+    .then((user) => {
+      let message = req.flash("error");
+      if (message.length > 0) {
+        message = message[0];
+      } else {
+        message = null;
+      }
+      res.render("auth/new-password", {
+        path: "/new-password",
+        pageTitle: "New Password",
+        errorMessage: message,
+        userId: user._id.toString(),
+        passwordToken: token,
+      });
+    })
+    .catch((err) => {
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
     });
-  });
 };
 
 exports.postNewPassword = (req, res, next) => {
@@ -239,6 +253,8 @@ exports.postNewPassword = (req, res, next) => {
       res.redirect("/login");
     })
     .catch((err) => {
-      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
     });
 };
